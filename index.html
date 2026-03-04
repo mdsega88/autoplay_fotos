@@ -215,6 +215,45 @@
         body.idle #ui-overlay {
             opacity: 0;
         }
+
+        /* Estilos para el Slide de QR */
+        .qr-slide {
+            background: #fff;
+            color: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .qr-container {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .qr-image {
+            width: 350px;
+            height: 350px;
+            object-fit: contain;
+        }
+
+        .qr-title {
+            font-size: 3rem;
+            color: #1a1a1a;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .qr-subtitle {
+            font-size: 1.8rem;
+            color: #666;
+            max-width: 600px;
+        }
     </style>
 </head>
 
@@ -235,10 +274,15 @@
         const SPREADSHEET_ID = '1jAAaPXs6xcuMKmZetWeWEe5WGIdlrVNM7Pf9PcPcsoA';
         const GID = '306335753';
         const SLIDE_DURATION = 5000;
+        const QR_FREQUENCY = 60000; // Mostrar cada 1 minuto
+        const QR_DURATION = 10000;  // Durante 10 segundos
+        const QR_IMAGE_URL = 'https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=https://docs.google.com/forms/d/e/1FAIpQLSe-XkS6XmO-L2f_4wE5J/viewform'; // Cambiar por tu link real de Form si es distinto
 
         let photos = [];
         let currentIndex = -1;
         let isLoaded = false;
+        let isShowingQR = false;
+        let slideshowInterval = null;
 
         // Cargar Google Visualization API
         google.charts.load('current', { packages: ['corechart'] });
@@ -285,11 +329,59 @@
 
         function startSlideshow() {
             showNext();
-            setInterval(showNext, SLIDE_DURATION);
+            slideshowInterval = setInterval(showNext, SLIDE_DURATION);
+
+            // Programar el anuncio de QR cada 1 minuto
+            setInterval(triggerQR, QR_FREQUENCY);
+        }
+
+        function triggerQR() {
+            if (isShowingQR) return;
+
+            isShowingQR = true;
+            clearInterval(slideshowInterval); // Pausar fotos
+
+            showQRSlide();
+
+            // Volver al slideshow normal después de 10 segundos
+            setTimeout(() => {
+                isShowingQR = false;
+                showNext(); // Mostrar la siguiente foto inmediatamente
+                slideshowInterval = setInterval(showNext, SLIDE_DURATION);
+            }, QR_DURATION);
+        }
+
+        function showQRSlide() {
+            const container = document.getElementById('slideshow-container');
+            const slide = document.createElement('div');
+            slide.className = 'slide qr-slide active';
+
+            slide.innerHTML = `
+                <div class="qr-container">
+                    <img src="${QR_IMAGE_URL}" class="qr-image" alt="QR Code">
+                </div>
+                <h2 class="qr-title">¡Subí tu Foto!</h2>
+                <p class="qr-subtitle">Escaneá el código y compartí tus momentos con Mauro & Maca</p>
+            `;
+
+            container.appendChild(slide);
+
+            // Limpieza
+            const oldSlides = container.querySelectorAll('.slide:not(.qr-slide)');
+            oldSlides.forEach(s => {
+                s.classList.remove('active');
+                setTimeout(() => s.remove(), 2000);
+            });
+
+            // Auto-remover el slide de QR después de su duración
+            setTimeout(() => {
+                slide.classList.remove('active');
+                setTimeout(() => slide.remove(), 2000);
+            }, QR_DURATION);
         }
 
         function showNext() {
-            if (photos.length === 0) return;
+            if (photos.length === 0 || isShowingQR) return;
 
             currentIndex = (currentIndex + 1) % photos.length;
             const item = photos[currentIndex];
