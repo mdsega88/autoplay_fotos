@@ -254,6 +254,24 @@
             color: #666;
             max-width: 600px;
         }
+
+        /* Contador de Fotos */
+        #photo-counter {
+            position: fixed;
+            bottom: 20px;
+            right: 30px;
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            padding: 8px 18px;
+            border-radius: 20px;
+            color: var(--accent-color);
+            font-size: 1.2rem;
+            font-weight: 300;
+            border: 1px solid var(--glass-border);
+            z-index: 100;
+            letter-spacing: 1px;
+            opacity: 0.8;
+        }
     </style>
 </head>
 
@@ -267,6 +285,8 @@
     <div id="ui-overlay">
         <button class="btn" onclick="toggleFullScreen()">Pantalla Completa</button>
     </div>
+
+    <div id="photo-counter">0 / 0</div>
 
     <div id="slideshow-container"></div>
 
@@ -383,16 +403,25 @@
         function showNext() {
             if (photos.length === 0 || isShowingQR) return;
 
-            currentIndex = (currentIndex + 1) % photos.length;
+            // Aseguramos que el índice sea válido si la lista cambió
+            if (currentIndex >= photos.length - 1) {
+                currentIndex = 0;
+            } else {
+                currentIndex++;
+            }
+
             const item = photos[currentIndex];
 
-            const container = document.getElementById('slideshow-container');
+            // Actualizar contador
+            const counter = document.getElementById('photo-counter');
+            if (counter) {
+                counter.innerText = `${currentIndex + 1} / ${photos.length}`;
+            }
 
+            const container = document.getElementById('slideshow-container');
             const slide = document.createElement('div');
             slide.className = 'slide';
 
-            // Regex mejorado: permite caracteres como & en el hashtag (ej: #M&M)
-            // Busca desde el # hasta encontrar un espacio o un final de línea
             const formattedCaption = item.caption.replace(/#([^\s,]+)/g, '<span class="hashtag">#$1</span>');
 
             slide.innerHTML = `
@@ -404,13 +433,16 @@
             `;
 
             container.appendChild(slide);
-            setTimeout(() => slide.classList.add('active'), 50);
+            setTimeout(() => slide.classList.add('active'), 100);
 
-            // Limpieza de slides viejos
+            // Limpieza agresiva de slides viejos (solo dejamos el nuevo)
             const slides = container.querySelectorAll('.slide');
-            if (slides.length > 2) {
-                setTimeout(() => slides[0].remove(), 2000);
-            }
+            slides.forEach(s => {
+                if (s !== slide) {
+                    s.classList.remove('active');
+                    setTimeout(() => { if (s.parentNode) s.remove(); }, 2500);
+                }
+            });
         }
 
         function hideLoading() {
