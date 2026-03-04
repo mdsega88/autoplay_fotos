@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mauro & Maca - Boda 2026</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <!-- Google Visualization API para leer el Sheet sin problemas de CORS en servidores -->
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <style>
+        :root {
+            --glass-bg: rgba(0, 0, 0, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --text-color: #ffffff;
+            --accent-color: #f7d794;
+            /* Color champaña/oro suave */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body,
+        html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: 'Outfit', sans-serif;
+            color: var(--text-color);
+        }
+
+        #slideshow-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .slide.active {
+            opacity: 1;
+            z-index: 2;
+        }
+
+        .bg-blur {
+            position: absolute;
+            top: -10%;
+            left: -10%;
+            width: 120%;
+            height: 120%;
+            background-size: cover;
+            background-position: center;
+            filter: blur(60px) brightness(0.4);
+            z-index: -1;
+        }
+
+        .photo {
+            max-width: 95%;
+            max-height: 90%;
+            object-fit: contain;
+            border-radius: 4px;
+            box-shadow: 0 20px 80px rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .caption-container {
+            position: absolute;
+            bottom: 6%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: auto;
+            min-width: 300px;
+            max-width: 80%;
+            padding: 25px 50px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 100px;
+            /* Estilo cápsula moderna */
+            border: 1px solid var(--glass-border);
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 10;
+            animation: slideUp 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translate(-50%, 100px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translate(-50%, 0);
+                opacity: 1;
+            }
+        }
+
+        .caption-text {
+            font-size: 2.2rem;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .hashtag {
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        /* UI Controls */
+        #ui-overlay {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        body:hover #ui-overlay {
+            opacity: 1;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            font-family: 'Outfit';
+            transition: all 0.3s;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+
+        /* Loading Screen */
+        #loading {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 1s ease;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* No cursor when idle */
+        body.idle {
+            cursor: none;
+        }
+
+        body.idle #ui-overlay {
+            opacity: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <p style="letter-spacing: 2px; font-weight: 300;">CONECTANDO CON TUS RECUERDOS...</p>
+    </div>
+
+    <div id="ui-overlay">
+        <button class="btn" onclick="toggleFullScreen()">Pantalla Completa</button>
+    </div>
+
+    <div id="slideshow-container"></div>
+
+    <script>
+        const SPREADSHEET_ID = '1jAAaPXs6xcuMKmZetWeWEe5WGIdlrVNM7Pf9PcPcsoA';
+        const GID = '306335753';
+        const SLIDE_DURATION = 5000;
+
+        let photos = [];
+        let currentIndex = -1;
+        let isLoaded = false;
+
+        // Cargar Google Visualization API
+        google.charts.load('current', { packages: ['corechart'] });
+        google.charts.setOnLoadCallback(init);
+
+        function init() {
+            fetchData();
+            // Refrescar datos cada minuto para detectar nuevas fotos
+            setInterval(fetchData, 60000);
+        }
+
+        function fetchData() {
+            const query = new google.visualization.Query(
+                `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:csv&gid=${GID}`
+            );
+
+            // Usamos fetch directamente porque a veces la librería Query falla en CORS locales
+            // Pero si está hosteado, Query es mejor. Intentamos un enfoque híbrido.
+            fetch(`https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}`)
+                .then(res => res.text())
+                .then(data => {
+                    // Limpiar el wrapper de Google (google.visualization.Query.setResponse(...))
+                    const json = JSON.parse(data.substring(47, data.length - 2));
+                    const rows = json.table.rows;
+
+                    // Mapear columnas (Subí tu foto = 1, Hashtag = 2, Link Python = 3)
+                    // Ajustamos índices según tu tabla
+                    const newPhotos = rows.map(r => {
+                        return {
+                            url: r.c[3] ? r.c[3].v : '', // Columna D (Link para Python)
+                            caption: r.c[2] ? r.c[2].v : '' // Columna C (Hashtag)
+                        };
+                    }).filter(p => p.url && p.url.includes('http'));
+
+                    if (JSON.stringify(newPhotos) !== JSON.stringify(photos)) {
+                        photos = newPhotos;
+                        if (!isLoaded && photos.length > 0) {
+                            isLoaded = true;
+                            hideLoading();
+                            startSlideshow();
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error("Error cargando datos:", err);
+                    // Si falla el fetch por CORS, avisamos al usuario (solo en consola)
+                });
+        }
+
+        function startSlideshow() {
+            showNext();
+            setInterval(showNext, SLIDE_DURATION);
+        }
+
+        function showNext() {
+            if (photos.length === 0) return;
+
+            currentIndex = (currentIndex + 1) % photos.length;
+            const item = photos[currentIndex];
+
+            const container = document.getElementById('slideshow-container');
+
+            const slide = document.createElement('div');
+            slide.className = 'slide';
+
+            // Formatear hashtags
+            const formattedCaption = item.caption.replace(/#(\w+)/g, '<span class="hashtag">#$1</span>');
+
+            slide.innerHTML = `
+                <div class="bg-blur" style="background-image: url('${item.url}')"></div>
+                <img src="${item.url}" class="photo" onerror="this.parentElement.style.display='none'">
+                <div class="caption-container">
+                    <p class="caption-text">${formattedCaption}</p>
+                </div>
+            `;
+
+            container.appendChild(slide);
+            setTimeout(() => slide.classList.add('active'), 50);
+
+            // Limpieza de slides viejos
+            const slides = container.querySelectorAll('.slide');
+            if (slides.length > 2) {
+                setTimeout(() => slides[0].remove(), 2000);
+            }
+        }
+
+        function hideLoading() {
+            const loader = document.getElementById('loading');
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.display = 'none', 1000);
+        }
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Gestión de cursor idle
+        let idleTimer;
+        document.body.addEventListener('mousemove', () => {
+            document.body.classList.remove('idle');
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => document.body.classList.add('idle'), 3000);
+        });
+    </script>
+</body>
+
+</html>
