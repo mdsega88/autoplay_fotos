@@ -313,6 +313,42 @@
             letter-spacing: 1px;
             opacity: 0.8;
         }
+
+        /* Badge para fotos prioritarias */
+        .badge-live {
+            position: absolute;
+            top: 100px;
+            right: 40px;
+            background: #ff0050;
+            /* Color Instagram vivo */
+            color: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            z-index: 50;
+            box-shadow: 0 4px 15px rgba(255, 0, 80, 0.4);
+            animation: pulseLive 2s infinite;
+        }
+
+        @keyframes pulseLive {
+            0% {
+                transform: scale(1);
+                opacity: 0.9;
+            }
+
+            50% {
+                transform: scale(1.05);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 0.9;
+            }
+        }
     </style>
 </head>
 
@@ -346,10 +382,13 @@
         const QR_IMAGE_URL = 'https://api.qrserver.com/v1/create-qr-code/?size=450x450&data=https://forms.gle/NfUjYEk56XdyXpv86';
 
         let photos = [];
+        let priorityQueue = [];
+        let seenPhotoUrls = new Set();
         let currentIndex = -1;
         let isLoaded = false;
         let isShowingQR = false;
         let slideshowInterval = null;
+        let priorityShownCount = 0;
 
         // Cargar Google Visualization API
         google.charts.load('current', { packages: ['corechart'] });
@@ -375,20 +414,32 @@
                     const json = JSON.parse(jsonText);
                     const rows = json.table.rows;
 
-                    const newPhotos = rows.map(r => {
+                    const incomingPhotos = rows.map(r => {
                         return {
                             url: r.c[3] ? r.c[3].v : '',
                             caption: r.c[2] ? r.c[2].v : ''
                         };
                     }).filter(p => p.url && p.url.includes('http'));
 
-                    if (JSON.stringify(newPhotos) !== JSON.stringify(photos)) {
-                        photos = newPhotos;
-                        if (!isLoaded && photos.length > 0) {
-                            isLoaded = true;
-                            hideLoading();
-                            startSlideshow();
+                    // Lógica de detección de fotos nuevas (VIP)
+                    incomingPhotos.forEach(p => {
+                        if (!seenPhotoUrls.has(p.url)) {
+                            seenPhotoUrls.add(p.url);
+                            if (isLoaded) {
+                                // Si ya cargó inicialmente, las fotos que entren luego van a la fila VIP
+                                priorityQueue.push(p);
+                                console.log("¡Nueva foto detectada para prioridad!", p.url);
+                            }
                         }
+                    });
+
+                    // Siempre actualizamos la lista general
+                    photos = incomingPhotos;
+
+                    if (!isLoaded && photos.length > 0) {
+                        isLoaded = true;
+                        hideLoading();
+                        startSlideshow();
                     }
                 })
                 .catch(err => console.error("Error cargando datos:", err));
@@ -450,19 +501,27 @@
         function showNext() {
             if (photos.length === 0 || isShowingQR) return;
 
-            // Aseguramos que el índice sea válido si la lista cambió
-            if (currentIndex >= photos.length - 1) {
-                currentIndex = 0;
-            } else {
-                currentIndex++;
-            }
+            let item;
+            let isPriority = false;
 
-            const item = photos[currentIndex];
+            // REGLA DE INTERCALADO: Si hay fotos por subir y no mostramos demasiadas seguidas (max 3)
+            if (priorityQueue.length > 0 && priorityShownCount < 3) {
+                item = priorityQueue.shift();
+                isPriority = true;
+                priorityShownCount++;
+                console.log("Mostrando foto PRIORITARIA. VIP items restates:", priorityQueue.length);
+            } else {
+                // Rotación normal
+                currentIndex = (currentIndex + 1) % photos.length;
+                item = photos[currentIndex];
+                priorityShownCount = 0;
+            }
 
             // Actualizar contador
             const counter = document.getElementById('photo-counter');
             if (counter) {
-                counter.innerText = `${currentIndex + 1} / ${photos.length}`;
+                const totalText = isPriority ? `${photos.length} (+ NUEVA)` : `${currentIndex + 1} / ${photos.length}`;
+                counter.innerText = totalText;
             }
 
             const container = document.getElementById('slideshow-container');
@@ -470,9 +529,11 @@
             slide.className = 'slide';
 
             const formattedCaption = item.caption.replace(/#([^\s,]+)/g, '<span class="hashtag">#$1</span>');
+            const liveBadge = isPriority ? '<div class="badge-live">¡Recién subida!</div>' : '';
 
             slide.innerHTML = `
                 <div class="bg-blur" style="background-image: url('${item.url}')"></div>
+                ${liveBadge}
                 <img src="${item.url}" class="photo" onerror="this.parentElement.style.display='none'">
                 <div class="caption-container">
                     <p class="caption-text">${formattedCaption}</p>
