@@ -8,7 +8,8 @@
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=Grand+Hotel&display=swap"
+        rel="stylesheet">
     <!-- Google Visualization API para leer el Sheet sin problemas de CORS en servidores -->
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <style>
@@ -24,6 +25,46 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        #instagram-header {
+            position: fixed;
+            top: 25px;
+            left: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 500;
+            pointer-events: none;
+            animation: fadeInHeader 1.5s ease-out forwards;
+        }
+
+        #insta-logo {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+        }
+
+        #insta-text {
+            font-family: 'Grand Hotel', cursive;
+            font-size: 3.2rem;
+            color: #ffffff;
+            text-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+            margin-top: 5px;
+            letter-spacing: 1px;
+        }
+
+        @keyframes fadeInHeader {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
         }
 
         body,
@@ -280,6 +321,12 @@
     <div id="loading">
         <div class="spinner"></div>
         <p style="letter-spacing: 2px; font-weight: 300;">CONECTANDO CON TUS RECUERDOS...</p>
+    </div>
+
+    <div id="instagram-header">
+        <img id="insta-logo" src="https://drive.google.com/thumbnail?id=1w-Srp_t0i9JZs4X0IvGwOuRav8eN8L5q&sz=w500"
+            alt="M&M Logo">
+        <span id="insta-text">M&Mgram</span>
     </div>
 
     <div id="ui-overlay">
