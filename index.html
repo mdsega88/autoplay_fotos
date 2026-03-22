@@ -257,43 +257,51 @@
             opacity: 0;
         }
 
-        /* Estilos para el Slide de QR */
-        .qr-slide {
-            background: #fff;
-            color: #000;
+        /* QR Fijo abajo a la izquierda */
+        #qr-fixed-container {
+            position: fixed;
+            bottom: 25px;
+            left: 30px;
             display: flex;
-            flex-direction: column;
-            justify-content: center;
             align-items: center;
-            text-align: center;
-            padding: 40px;
-        }
-
-        .qr-container {
-            background: white;
-            padding: 30px;
+            gap: 15px;
+            z-index: 500;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 12px 20px;
             border-radius: 20px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            animation: fadeInHeader 1.5s ease-out forwards;
         }
 
-        .qr-image {
-            width: 350px;
-            height: 350px;
+        #qr-fixed-image {
+            width: 90px;
+            height: 90px;
+            background: white;
+            padding: 5px;
+            border-radius: 12px;
             object-fit: contain;
         }
 
-        .qr-title {
-            font-size: 3rem;
-            color: #1a1a1a;
-            margin-bottom: 10px;
-            font-weight: 600;
+        .qr-fixed-text-container {
+            display: flex;
+            flex-direction: column;
         }
 
-        .qr-subtitle {
-            font-size: 1.8rem;
-            color: #666;
-            max-width: 600px;
+        .qr-fixed-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: var(--accent-color);
+            margin-bottom: 2px;
+        }
+
+        .qr-fixed-subtitle {
+            font-size: 0.9rem;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.8);
+            letter-spacing: 0.5px;
         }
 
         /* Contador de Fotos */
@@ -369,6 +377,14 @@
         <button class="btn" onclick="toggleFullScreen()">Pantalla Completa</button>
     </div>
 
+    <div id="qr-fixed-container">
+        <img id="qr-fixed-image" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://forms.gle/NfUjYEk56XdyXpv86" alt="QR Link">
+        <div class="qr-fixed-text-container">
+            <span class="qr-fixed-title">¡Subí tu Foto!</span>
+            <span class="qr-fixed-subtitle">Escaneá y compartí</span>
+        </div>
+    </div>
+
     <div id="photo-counter">0 / 0</div>
 
     <div id="slideshow-container"></div>
@@ -377,16 +393,12 @@
         const SPREADSHEET_ID = '1jAAaPXs6xcuMKmZetWeWEe5WGIdlrVNM7Pf9PcPcsoA';
         const GID = '306335753';
         const SLIDE_DURATION = 5000;
-        const QR_FREQUENCY = 60000; // Mostrar cada 1 minuto
-        const QR_DURATION = 10000;  // Durante 10 segundos
         const QR_IMAGE_URL = 'https://api.qrserver.com/v1/create-qr-code/?size=450x450&data=https://forms.gle/NfUjYEk56XdyXpv86';
 
         let photos = [];
         let priorityQueue = [];
         let seenPhotoUrls = new Set();
-        let currentIndex = -1;
         let isLoaded = false;
-        let isShowingQR = false;
         let slideshowInterval = null;
         let priorityShownCount = 0;
 
@@ -401,105 +413,64 @@
         }
 
         function fetchData() {
-            // Timestamp para evitar caché de Google
-            const ts = new Date().getTime();
-            const url = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}&t=${ts}`;
-
-            fetch(url)
-                .then(res => res.text())
-                .then(data => {
-                    const jsonStart = data.indexOf('{');
-                    const jsonEnd = data.lastIndexOf('}');
-                    const jsonText = data.substring(jsonStart, jsonEnd + 1);
-                    const json = JSON.parse(jsonText);
-                    const rows = json.table.rows;
-
-                    const incomingPhotos = rows.map(r => {
-                        return {
-                            url: r.c[3] ? r.c[3].v : '',
-                            caption: r.c[2] ? r.c[2].v : ''
-                        };
-                    }).filter(p => p.url && p.url.includes('http'));
-
-                    // Lógica de detección de fotos nuevas (VIP)
-                    incomingPhotos.forEach(p => {
-                        if (!seenPhotoUrls.has(p.url)) {
-                            seenPhotoUrls.add(p.url);
-                            if (isLoaded) {
-                                // Si ya cargó inicialmente, las fotos que entren luego van a la fila VIP
-                                priorityQueue.push(p);
-                                console.log("¡Nueva foto detectada para prioridad!", p.url);
-                            }
-                        }
-                    });
-
-                    // Siempre actualizamos la lista general
-                    photos = incomingPhotos;
-
-                    if (!isLoaded && photos.length > 0) {
-                        isLoaded = true;
-                        hideLoading();
-                        startSlideshow();
-                    }
-                })
-                .catch(err => console.error("Error cargando datos:", err));
+            const query = new google.visualization.Query(
+                `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?gid=${GID}`
+            );
+            query.send(handleQueryResponse);
         }
+
+        function handleQueryResponse(response) {
+            if (response.isError()) {
+                console.error('Error en la consulta: ' + response.getMessage() + ' ' + response.getDetailedMessage());
+                return;
+            }
+
+            const data = response.getDataTable();
+            const numRows = data.getNumberOfRows();
+            const incomingPhotos = [];
+
+            // Iterar por las filas (columna 2: Caption, columna 3: URL)
+            for (let i = 0; i < numRows; i++) {
+                const photoUrl = data.getValue(i, 3);
+                const captionText = data.getValue(i, 2);
+
+                if (photoUrl && photoUrl.includes('http')) {
+                    incomingPhotos.push({
+                        url: photoUrl,
+                        caption: captionText || ''
+                    });
+                }
+            }
+
+            // Lógica de detección de fotos nuevas (VIP)
+            incomingPhotos.forEach(p => {
+                if (!seenPhotoUrls.has(p.url)) {
+                    seenPhotoUrls.add(p.url);
+                    if (isLoaded) {
+                        priorityQueue.push(p);
+                        console.log("¡Nueva foto detectada para prioridad!", p.url);
+                    }
+                }
+            });
+
+            // Siempre actualizamos la lista general
+            photos = incomingPhotos;
+
+            if (!isLoaded && photos.length > 0) {
+                isLoaded = true;
+                hideLoading();
+                startSlideshow();
+            }
+        }
+
 
         function startSlideshow() {
             showNext();
             slideshowInterval = setInterval(showNext, SLIDE_DURATION);
-
-            // Programar el anuncio de QR cada 1 minuto
-            setInterval(triggerQR, QR_FREQUENCY);
-        }
-
-        function triggerQR() {
-            if (isShowingQR) return;
-
-            isShowingQR = true;
-            clearInterval(slideshowInterval); // Pausar fotos
-
-            showQRSlide();
-
-            // Volver al slideshow normal después de 10 segundos
-            setTimeout(() => {
-                isShowingQR = false;
-                showNext(); // Mostrar la siguiente foto inmediatamente
-                slideshowInterval = setInterval(showNext, SLIDE_DURATION);
-            }, QR_DURATION);
-        }
-
-        function showQRSlide() {
-            const container = document.getElementById('slideshow-container');
-            const slide = document.createElement('div');
-            slide.className = 'slide qr-slide active';
-
-            slide.innerHTML = `
-                <div class="qr-container">
-                    <img src="${QR_IMAGE_URL}" class="qr-image" alt="QR Code">
-                </div>
-                <h2 class="qr-title">¡Subí tu Foto!</h2>
-                <p class="qr-subtitle">Escaneá el código y compartí tus momentos con Mauro & Maca</p>
-            `;
-
-            container.appendChild(slide);
-
-            // Limpieza
-            const oldSlides = container.querySelectorAll('.slide:not(.qr-slide)');
-            oldSlides.forEach(s => {
-                s.classList.remove('active');
-                setTimeout(() => s.remove(), 2000);
-            });
-
-            // Auto-remover el slide de QR después de su duración
-            setTimeout(() => {
-                slide.classList.remove('active');
-                setTimeout(() => slide.remove(), 2000);
-            }, QR_DURATION);
         }
 
         function showNext() {
-            if (photos.length === 0 || isShowingQR) return;
+            if (photos.length === 0) return;
 
             let item;
             let isPriority = false;
