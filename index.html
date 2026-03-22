@@ -427,20 +427,26 @@
 
             const data = response.getDataTable();
             const numRows = data.getNumberOfRows();
+            const numCols = data.getNumberOfColumns();
+            console.log(`Datos recibidos: ${numRows} filas, ${numCols} columnas`);
+
             const incomingPhotos = [];
 
             // Iterar por las filas (columna 2: Caption, columna 3: URL)
             for (let i = 0; i < numRows; i++) {
                 const photoUrl = data.getValue(i, 3);
                 const captionText = data.getValue(i, 2);
-
-                if (photoUrl && photoUrl.includes('http')) {
+                console.log(`Fila ${i}: URL=${photoUrl}, Caption=${captionText}`);
+                
+                if (photoUrl && String(photoUrl).includes('http')) {
                     incomingPhotos.push({
                         url: photoUrl,
                         caption: captionText || ''
                     });
                 }
             }
+
+            console.log(`Fotos válidas encontradas: ${incomingPhotos.length}`);
 
             // Lógica de detección de fotos nuevas (VIP)
             incomingPhotos.forEach(p => {
